@@ -13,16 +13,16 @@ mp_drawing = mp.solutions.drawing_utils
 width, height = 1280, 720
 angle_threshold = 160
 min_visibility = 0.6
-
+p_wrist_y = 0 
 # ---------- CAMERA ----------
 cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 cap.set(3, width)
 cap.set(4, height)
 
-mp_pose = mp.solutions.pose
 pose = mp_pose.Pose(
-    min_detection_confidence=0.7,
-    min_tracking_confidence=0.7
+    model_complexity=0, 
+    min_detection_confidence=0.5, 
+    min_tracking_confidence=0.5
 )
 
 # ---------- FUNCTIONS ----------
@@ -36,6 +36,22 @@ def calculate_angle(a, b, c):
     if angle > 180:
         angle = 360 - angle
     return angle
+
+def is_arm_extended(landmarks):
+    # Landmarks for the Physical Right Arm
+    shoulder = landmarks[12]
+    elbow = landmarks[14]
+    wrist = landmarks[16]
+
+    # 1. Lower the threshold to 140-150 degrees for a "quick" trigger
+    angle = calculate_angle(shoulder, elbow, wrist)
+    
+    # 2. Check if the wrist is moving upward rapidly (y getting smaller)
+    # or simply if the wrist has cleared the shoulder height
+    is_straight = angle > 145 
+    is_raised = wrist.y < shoulder.y - 0.1 # Wrist is noticeably above shoulder
+
+    return is_straight and is_raised
 
 def arm_straight(landmarks, side):
     elbow = landmarks[14]
@@ -76,7 +92,9 @@ while True:
     results = pose.process(rgb)
 
     # Detect hands
-    hands, frame = detector.findHands(frame, draw=False)
+    hands = None
+    if state == "GO" or state == "RESULT":
+        hands, frame = detector.findHands(frame, draw=False)
 
     # ===============================
     # POSE DETECTION
@@ -85,7 +103,7 @@ while True:
         landmarks = results.pose_landmarks.landmark
 
         arm_connections = [
-            (14, 16)  # RIGHT elbow → RIGHT wrist only
+            (14, 16)  # right elbow → right wrist only
         ]
 
         for connection in arm_connections:
@@ -119,12 +137,20 @@ while True:
                 go_time = time.time()
 
         elif state == "GO":
-            cv2.putText(frame, "O",
-                        (600, 350), cv2.FONT_HERSHEY_SIMPLEX, 5, (0,255,0), 10)
+            cv2.putText(frame, "O", (600, 350), cv2.FONT_HERSHEY_SIMPLEX, 5, (0,255,0), 10)
 
-            right_straight = arm_straight(landmarks, "right")
+            wrist = landmarks[16]
+            current_y = int(wrist.y * height)
+            
+            # CALCULATE VELOCITY: How many pixels did the wrist move up?
+            # In OpenCV, 'up' is a smaller Y value.
+            velocity = p_wrist_y - current_y 
+            p_wrist_y = current_y # Update for next frame
 
-            if right_straight:
+            # TRIGGER: If arm is mostly straight OR moving very fast upward
+            right_straight = arm_straight(landmarks, "right") 
+            
+            if right_straight or velocity > 30: # Adjust 30 based on your speed
                 reaction_time = time.time() - go_time
                 state = "RESULT"
 
@@ -135,16 +161,20 @@ while True:
                         (450, 420), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
 
     # ===============================
-    # HAND GUN DRAWING (OUTSIDE pose if)
+    # HAND GUN DRAWING (Filtered for LEfT Hand)
     # ===============================
     if hands:
-        hand = hands[0]
-        lmList = hand["lmList"]
+        for hand in hands:
+            # MediaPipe's 'Right' is your physical right hand 
+            # after considering the flip logic.
+            if hand["type"] == "Right": 
+                lmList = hand["lmList"]
 
-        cv2.line(frame, lmList[0][:2], lmList[8][:2], (0,255,0), 5)
-        cv2.line(frame, lmList[0][:2], lmList[12][:2], (0,255,0), 5)
-        cv2.line(frame, lmList[0][:2], lmList[4][:2], (0,255,0), 5)
-
+                # Drawing the "Gun" lines
+                # Wrist(0) to Index(8), Middle(12), and Thumb(4)
+                cv2.line(frame, lmList[0][:2], lmList[8][:2], (0,255,0), 5)
+                cv2.line(frame, lmList[0][:2], lmList[12][:2], (0,255,0), 5)
+                cv2.line(frame, lmList[0][:2], lmList[4][:2], (0,255,0), 5)
     cv2.imshow("Reaction Test", frame)
 
     key = cv2.waitKey(1) & 0xFF
