@@ -1,199 +1,196 @@
 import cv2
 import mediapipe as mp
 import time
-import random
-import math
-from cvzone.HandTrackingModule import HandDetector
 
-detector = HandDetector(detectionCon=0.8, maxHands=2)
-mp_pose = mp.solutions.pose
-mp_drawing = mp.solutions.drawing_utils
+# =============================
+# HAND TRACKING SETUP
+# =============================
+mp_hands = mp.solutions.hands
+hands = mp_hands.Hands(max_num_hands=1)
+mp_draw = mp.solutions.drawing_utils
 
-# ---------- SETTINGS ----------
-width, height = 1280, 720
-angle_threshold = 160
-min_visibility = 0.6
-p_wrist_y = 0 
-# ---------- CAMERA ----------
-cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-cap.set(3, width)
-cap.set(4, height)
+# =============================
+# QUESTIONS (sample only)
+# =============================
+questions = [
+    ("What is 2 + 2?", ["1", "2", "3", "4"], 3),
+    ("Capital of France?", ["Berlin", "Madrid", "Paris", "Rome"], 2),
+    ("5 * 3?", ["15", "10", "20", "25"], 0),
+    ("Color of sky?", ["Blue", "Green", "Red", "Yellow"], 0),
+    ("Python is a?", ["Snake", "Language", "Car", "Food"], 1),
+    ("Sun rises in?", ["West", "North", "East", "South"], 2),
+    ("Water formula?", ["H2O", "CO2", "O2", "NaCl"], 0),
+    ("Earth is?", ["Flat", "Round", "Square", "Triangle"], 1),
+    ("Fastest land animal?", ["Lion", "Tiger", "Cheetah", "Dog"], 2),
+    ("1+1?", ["1", "2", "3", "4"], 1),
+    ("HTML stands for?", ["Hyper Text Markup Language", "Hot Mail", "How to Make Lasagna", "None"], 0),
+    ("Largest planet?", ["Earth", "Mars", "Jupiter", "Venus"], 2),
+    ("Binary of 2?", ["10", "11", "01", "00"], 0),
+    ("Square root of 16?", ["2", "3", "4", "5"], 2),
+    ("Final prize?", ["100", "1000", "1M", "10M"], 2)
+]
 
-pose = mp_pose.Pose(
-    model_complexity=0, 
-    min_detection_confidence=0.5, 
-    min_tracking_confidence=0.5
-)
+money = [
+    "$100", "$200", "$300", "$500", "$1,000",
+    "$2,000", "$4,000", "$8,000", "$16,000",
+    "$32,000", "$64,000", "$125,000",
+    "$250,000", "$500,000", "$1,000,000"
+]
 
-# ---------- FUNCTIONS ----------
-def calculate_angle(a, b, c):
-    angle = math.degrees(
-        math.atan2(c.y - b.y, c.x - b.x) -
-        math.atan2(a.y - b.y, a.x - b.x)
-    )
-    if angle < 0:
-        angle += 360
-    if angle > 180:
-        angle = 360 - angle
-    return angle
+# =============================
+# FINGER COUNT FUNCTION
+# =============================
+def count_fingers(hand_landmarks):
+    fingers = []
 
-def is_arm_extended(landmarks):
-    # Landmarks for the Physical Right Arm
-    shoulder = landmarks[12]
-    elbow = landmarks[14]
-    wrist = landmarks[16]
+    # Tip IDs
+    tips = [4, 8, 12, 16, 20]
 
-    # 1. Lower the threshold to 140-150 degrees for a "quick" trigger
-    angle = calculate_angle(shoulder, elbow, wrist)
-    
-    # 2. Check if the wrist is moving upward rapidly (y getting smaller)
-    # or simply if the wrist has cleared the shoulder height
-    is_straight = angle > 145 
-    is_raised = wrist.y < shoulder.y - 0.1 # Wrist is noticeably above shoulder
+    # Thumb
+    if hand_landmarks.landmark[tips[0]].x < hand_landmarks.landmark[tips[0] - 1].x:
+        fingers.append(1)
+    else:
+        fingers.append(0)
 
-    return is_straight and is_raised
+    # Other fingers
+    for i in range(1, 5):
+        if hand_landmarks.landmark[tips[i]].y < hand_landmarks.landmark[tips[i] - 2].y:
+            fingers.append(1)
+        else:
+            fingers.append(0)
 
-def arm_straight(landmarks, side):
-    elbow = landmarks[14]
-    wrist = landmarks[16]
+    return sum(fingers)
 
-    if elbow.visibility < min_visibility or wrist.visibility < min_visibility:
-        return False
+# =============================
+# GAME VARIABLES
+# =============================
+cap = cv2.VideoCapture(0)
 
-    # Check if wrist is significantly above elbow
-    return wrist.y < elbow.y - 0.05
+game_state = "START"
+level = 0
+current_money = "$0"
 
-    angle = calculate_angle(elbow, wrist)
+last_gesture_time = 0
+gesture_delay = 2  # seconds
 
-    return angle > angle_threshold
-
-def arm_visible(landmarks):
-    return landmarks[16].visibility > min_visibility
-
-# ---------- GAME VARIABLES ----------
-state = "WAITING"
-start_time = 0
-go_time = 0
-reaction_time = 0
-delay = 0
-angle_threshold = 160
-angle_threshold = 145
-cv2.namedWindow("Reaction Game", cv2.WND_PROP_FULLSCREEN)
-cv2.setWindowProperty("Reaction Game", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-
-# ---------- MAIN LOOP ----------
+# =============================
+# MAIN LOOP
+# =============================
 while True:
-    ret, frame = cap.read()
-    if not ret:
-        break
+    success, img = cap.read()
+    img = cv2.flip(img, 1)
 
-    frame = cv2.flip(frame, 1)
-    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    results = pose.process(rgb)
+    rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    result = hands.process(rgb)
 
-    # Detect hands
-    hands = None
-    if state == "GO" or state == "RESULT":
-        hands, frame = detector.findHands(frame, draw=False)
+    fingers = 0
 
-    # ===============================
-    # POSE DETECTION
-    # ===============================
-    if results.pose_landmarks:
-        landmarks = results.pose_landmarks.landmark
+    if result.multi_hand_landmarks:
+        for handLms in result.multi_hand_landmarks:
+            mp_draw.draw_landmarks(img, handLms, mp_hands.HAND_CONNECTIONS)
+            fingers = count_fingers(handLms)
 
-        arm_connections = [
-            (14, 16)  # right elbow → right wrist only
-        ]
+    current_time = time.time()
 
-        for connection in arm_connections:
-            start = landmarks[connection[0]]
-            end = landmarks[connection[1]]
+    # =============================
+    # START SCREEN
+    # =============================
+    if game_state == "START":
+        cv2.putText(img, "SHOW 1 FINGER TO START", (50, 200),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 3)
 
-            if start.visibility > 0.6 and end.visibility > 0.6:
-                x1, y1 = int(start.x * width), int(start.y * height)
-                x2, y2 = int(end.x * width), int(end.y * height)
+        if fingers == 1 and current_time - last_gesture_time > gesture_delay:
+            game_state = "QUESTION"
+            level = 0
+            last_gesture_time = current_time
 
-                cv2.line(frame, (x1, y1), (x2, y2), (0, 255, 0), 5)
+    # =============================
+    # QUESTION STATE
+    # =============================
+    elif game_state == "QUESTION":
+        q, choices, correct = questions[level]
 
-        # ===============================
-        # GAME STATE LOGIC
-        # ===============================
+        cv2.putText(img, f"Level {level+1} - {money[level]}", (20, 40),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 0), 2)
 
-        if state == "WAITING":
-            cv2.putText(frame, "Press S to Start",
-                        (450, 350), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
+        cv2.putText(img, q, (20, 100),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
 
-        elif state == "READY":
-            cv2.putText(frame, "X",
-                        (600, 350), cv2.FONT_HERSHEY_SIMPLEX, 5, (0,0,255), 10)
+        for i, choice in enumerate(choices):
+            cv2.putText(img, f"{chr(65+i)}: {choice}", (20, 150 + i*40),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (200, 200, 200), 2)
 
-            if arm_visible(landmarks):
-                state = "WAITING"
-                print("False Start!")
+        cv2.putText(img, f"Fingers: {fingers}", (400, 50),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
 
-            if time.time() - start_time > delay:
-                state = "GO"
-                go_time = time.time()
+        if 1 <= fingers <= 4 and current_time - last_gesture_time > gesture_delay:
+            if fingers - 1 == correct:
+                current_money = money[level]
+                level += 1
+                last_gesture_time = current_time
 
-        elif state == "GO":
-            cv2.putText(frame, "O", (600, 350), cv2.FONT_HERSHEY_SIMPLEX, 5, (0,255,0), 10)
-
-            wrist = landmarks[16]
-            current_y = int(wrist.y * height)
-            
-            # CALCULATE VELOCITY: How many pixels did the wrist move up?
-            # In OpenCV, 'up' is a smaller Y value.
-            velocity = p_wrist_y - current_y 
-            p_wrist_y = current_y # Update for next frame
-
-            # TRIGGER: If arm is mostly straight OR moving very fast upward
-            right_straight = arm_straight(landmarks, "right") 
-            
-            if right_straight or velocity > 30: # Adjust 30 based on your speed
-                reaction_time = time.time() - go_time
-                state = "RESULT"
-
-        elif state == "RESULT":
-            cv2.putText(frame, f"Reaction Time: {reaction_time:.3f}s",
-                        (400, 350), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0,255,0), 3)
-            cv2.putText(frame, "Press R to Retry",
-                        (450, 420), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
-
-    # ===============================
-    # HAND GUN DRAWING (Filtered for LEfT Hand)
-    # ===============================
-    if hands:
-        for hand in hands:
-            # MediaPipe's 'Right' is your physical right hand 
-            # after considering the flip logic.
-            if hand["type"] == "Right": 
-                lmList = hand["lmList"]
-
-                # Drawing the "Gun" lines
-                # Wrist(0) to Index(8), Middle(12), and Thumb(4)
-                cv2.line(frame, lmList[0][:2], lmList[8][:2], (0,255,0), 5)
-                cv2.line(frame, lmList[0][:2], lmList[12][:2], (0,255,0), 5)
-                cv2.line(frame, lmList[0][:2], lmList[4][:2], (0,255,0), 5)
-    cv2.imshow("Reaction Test", frame)
-
-    key = cv2.waitKey(1) & 0xFF
-
-    if key == ord('q'):
-        break
-
-    if key == ord('s') and state == "WAITING":
-        if results.pose_landmarks:
-            landmarks = results.pose_landmarks.landmark
-            if not arm_visible(landmarks):
-                state = "READY"
-                start_time = time.time()
-                delay = random.uniform(2, 5)
+                if level == 15:
+                    game_state = "WIN"
+                else:
+                    game_state = "DECISION"
             else:
-                print("Hide your arms first!")
+                game_state = "GAME_OVER"
+                last_gesture_time = current_time
 
-    if key == ord('r'):
-        state = "WAITING"
+    # =============================
+    # DECISION STATE
+    # =============================
+    elif game_state == "DECISION":
+        cv2.putText(img, f"You won {current_money}", (50, 150),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 3)
+
+        cv2.putText(img, "1 Finger = Continue", (50, 250),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+
+        cv2.putText(img, "2 Fingers = Keep Money", (50, 300),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+
+        if current_time - last_gesture_time > gesture_delay:
+            if fingers == 1:
+                game_state = "QUESTION"
+                last_gesture_time = current_time
+            elif fingers == 2:
+                game_state = "WIN"
+                last_gesture_time = current_time
+
+    # =============================
+    # GAME OVER
+    # =============================
+    elif game_state == "GAME_OVER":
+        cv2.putText(img, "WRONG ANSWER!", (100, 200),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 0, 255), 4)
+
+        cv2.putText(img, "You lost everything!", (100, 260),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+
+        cv2.putText(img, "Show 1 finger to restart", (100, 320),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+
+        if fingers == 1:
+            game_state = "START"
+
+    # =============================
+    # WIN STATE
+    # =============================
+    elif game_state == "WIN":
+        cv2.putText(img, f"CONGRATS! You won {current_money}", (50, 200),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 3)
+
+        cv2.putText(img, "Show 1 finger to restart", (50, 260),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+
+        if fingers == 1:
+            game_state = "START"
+
+    cv2.imshow("Millionaire Vision Game", img)
+
+    if cv2.waitKey(1) & 0xFF == 27:
+        break
 
 cap.release()
 cv2.destroyAllWindows()
