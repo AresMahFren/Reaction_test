@@ -1,11 +1,14 @@
-[gd_scene format=3 uid="uid://dbcivlu428p0e"]
+[gd_scene load_steps=8 format=3 uid="uid://dbcivlu428p0e"]
 
 [ext_resource type="Script" uid="uid://dpe41dnxecali" path="res://Introduction.gd" id="1_0a7ni"]
 [ext_resource type="VideoStream" uid="uid://c8l4p47h6rx53" path="res://Who Wants To Be A Millionaire Intro 2011.ogv" id="1_s2ta7"]
 [ext_resource type="Texture2D" uid="uid://c820ahcaiwt7w" path="res://Ownerr.jpg" id="3_y72e6"]
 [ext_resource type="Texture2D" uid="uid://cdovpxlnxde6p" path="res://Choose.jpg" id="4_u2rf6"]
+[ext_resource type="AudioStream" uid="uid://dlc3j5m6uq8mv" path="res://introsound.wav" id="4_y6ycx"]
+[ext_resource type="AudioStream" uid="uid://bo6xgn4q7y14j" path="res://Select.wav" id="5_dpxxx"]
+[ext_resource type="Texture2D" uid="uid://dcwrogogfqomp" path="res://Load.jpg" id="7_dk2oa"]
 
-[node name="Intro" type="Control" unique_id=1842282338]
+[node name="Intro" type="Control"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -14,7 +17,7 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_0a7ni")
 
-[node name="Start" type="VideoStreamPlayer" parent="." unique_id=328712871]
+[node name="Start" type="VideoStreamPlayer" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -25,7 +28,7 @@ stream = ExtResource("1_s2ta7")
 autoplay = true
 expand = true
 
-[node name="Play" type="TextureRect" parent="." unique_id=1350269274]
+[node name="Play" type="TextureRect" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -34,7 +37,14 @@ grow_horizontal = 2
 grow_vertical = 2
 texture = ExtResource("3_y72e6")
 
-[node name="Choose" type="TextureRect" parent="." unique_id=2059573340]
+[node name="intro" type="AudioStreamPlayer" parent="Play"]
+stream = ExtResource("4_y6ycx")
+autoplay = true
+
+[node name="enter" type="AudioStreamPlayer" parent="Play"]
+stream = ExtResource("5_dpxxx")
+
+[node name="Choose" type="TextureRect" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -42,3 +52,31 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 texture = ExtResource("4_u2rf6")
+
+[node name="Loading" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("7_dk2oa")
+
+[node name="Solo" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Duel" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Timer" type="Timer" parent="."]
+one_shot = true
