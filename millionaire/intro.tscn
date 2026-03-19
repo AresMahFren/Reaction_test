@@ -1,0 +1,44 @@
+[gd_scene format=3 uid="uid://dbcivlu428p0e"]
+
+[ext_resource type="Script" uid="uid://dpe41dnxecali" path="res://Introduction.gd" id="1_0a7ni"]
+[ext_resource type="VideoStream" uid="uid://c8l4p47h6rx53" path="res://Who Wants To Be A Millionaire Intro 2011.ogv" id="1_s2ta7"]
+[ext_resource type="Texture2D" uid="uid://c820ahcaiwt7w" path="res://Ownerr.jpg" id="3_y72e6"]
+[ext_resource type="Texture2D" uid="uid://cdovpxlnxde6p" path="res://Choose.jpg" id="4_u2rf6"]
+
+[node name="Intro" type="Control" unique_id=1842282338]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_0a7ni")
+
+[node name="Start" type="VideoStreamPlayer" parent="." unique_id=328712871]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+stream = ExtResource("1_s2ta7")
+autoplay = true
+expand = true
+
+[node name="Play" type="TextureRect" parent="." unique_id=1350269274]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("3_y72e6")
+
+[node name="Choose" type="TextureRect" parent="." unique_id=2059573340]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("4_u2rf6")

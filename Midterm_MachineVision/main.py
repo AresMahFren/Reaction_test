@@ -10,7 +10,7 @@ hands = mp_hands.Hands(max_num_hands=1)
 mp_draw = mp.solutions.drawing_utils
 
 # =============================
-# QUESTIONS (sample only)
+# QUESTIONS
 # =============================
 questions = [
     ("What is 2 + 2?", ["1", "2", "3", "4"], 3),
@@ -38,28 +38,20 @@ money = [
 ]
 
 # =============================
-# FINGER COUNT FUNCTION
+# ROI BOX
 # =============================
-def count_fingers(hand_landmarks):
-    fingers = []
+roi_top_left = (400, 100)
+roi_bottom_right = (600, 300)
 
-    # Tip IDs
-    tips = [4, 8, 12, 16, 20]
+# =============================
+# TIMING
+# =============================
+HOLD_TIME = 3
+QUESTION_TIME_LIMIT = 10
 
-    # Thumb
-    if hand_landmarks.landmark[tips[0]].x < hand_landmarks.landmark[tips[0] - 1].x:
-        fingers.append(1)
-    else:
-        fingers.append(0)
-
-    # Other fingers
-    for i in range(1, 5):
-        if hand_landmarks.landmark[tips[i]].y < hand_landmarks.landmark[tips[i] - 2].y:
-            fingers.append(1)
-        else:
-            fingers.append(0)
-
-    return sum(fingers)
+hold_start_time = None
+selected_fingers = None
+question_start_time = time.time()
 
 # =============================
 # GAME VARIABLES
@@ -70,8 +62,25 @@ game_state = "START"
 level = 0
 current_money = "$0"
 
-last_gesture_time = 0
-gesture_delay = 2  # seconds
+# =============================
+# FINGER COUNT FUNCTION
+# =============================
+def count_fingers(hand_landmarks):
+    fingers = []
+    tips = [4, 8, 12, 16, 20]
+
+    if hand_landmarks.landmark[tips[0]].x < hand_landmarks.landmark[tips[0] - 1].x:
+        fingers.append(1)
+    else:
+        fingers.append(0)
+
+    for i in range(1, 5):
+        if hand_landmarks.landmark[tips[i]].y < hand_landmarks.landmark[tips[i] - 2].y:
+            fingers.append(1)
+        else:
+            fingers.append(0)
+
+    return sum(fingers)
 
 # =============================
 # MAIN LOOP
@@ -84,25 +93,56 @@ while True:
     result = hands.process(rgb)
 
     fingers = 0
+    hand_in_box = False
 
+    # Draw ROI box
+    cv2.rectangle(img, roi_top_left, roi_bottom_right, (0, 255, 0), 2)
+    cv2.putText(img, "Place hand here", (400, 90),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+
+    # Detect hand
     if result.multi_hand_landmarks:
         for handLms in result.multi_hand_landmarks:
-            mp_draw.draw_landmarks(img, handLms, mp_hands.HAND_CONNECTIONS)
-            fingers = count_fingers(handLms)
+            h, w, _ = img.shape
+            x = int(handLms.landmark[9].x * w)
+            y = int(handLms.landmark[9].y * h)
 
-    current_time = time.time()
+            if roi_top_left[0] < x < roi_bottom_right[0] and roi_top_left[1] < y < roi_bottom_right[1]:
+                hand_in_box = True
+                mp_draw.draw_landmarks(img, handLms, mp_hands.HAND_CONNECTIONS)
+                fingers = count_fingers(handLms)
 
     # =============================
-    # START SCREEN
+    # HOLD LOGIC
+    # =============================
+    if hand_in_box:
+        if selected_fingers is None:
+            selected_fingers = fingers
+            hold_start_time = time.time()
+        elif selected_fingers == fingers:
+            elapsed = time.time() - hold_start_time
+            cv2.putText(img, f"Holding: {int(elapsed)}s", (400, 350),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+        else:
+            selected_fingers = fingers
+            hold_start_time = time.time()
+    else:
+        selected_fingers = None
+        hold_start_time = None
+
+    # =============================
+    # START STATE
     # =============================
     if game_state == "START":
         cv2.putText(img, "SHOW 1 FINGER TO START", (50, 200),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 3)
 
-        if fingers == 1 and current_time - last_gesture_time > gesture_delay:
+        if selected_fingers == 1 and hold_start_time and (time.time() - hold_start_time) >= HOLD_TIME:
             game_state = "QUESTION"
             level = 0
-            last_gesture_time = current_time
+            current_money = "$0"
+            question_start_time = time.time()
+            selected_fingers = None
 
     # =============================
     # QUESTION STATE
@@ -110,8 +150,13 @@ while True:
     elif game_state == "QUESTION":
         q, choices, correct = questions[level]
 
+        remaining_time = QUESTION_TIME_LIMIT - int(time.time() - question_start_time)
+
         cv2.putText(img, f"Level {level+1} - {money[level]}", (20, 40),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 0), 2)
+
+        cv2.putText(img, f"Time: {remaining_time}s", (400, 50),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
         cv2.putText(img, q, (20, 100),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
@@ -120,22 +165,23 @@ while True:
             cv2.putText(img, f"{chr(65+i)}: {choice}", (20, 150 + i*40),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, (200, 200, 200), 2)
 
-        cv2.putText(img, f"Fingers: {fingers}", (400, 50),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
+        if remaining_time <= 0:
+            game_state = "GAME_OVER"
 
-        if 1 <= fingers <= 4 and current_time - last_gesture_time > gesture_delay:
-            if fingers - 1 == correct:
-                current_money = money[level]
-                level += 1
-                last_gesture_time = current_time
+        if selected_fingers and hold_start_time and (time.time() - hold_start_time) >= HOLD_TIME:
+            if 1 <= selected_fingers <= 4:
+                if selected_fingers - 1 == correct:
+                    current_money = money[level]
+                    level += 1
+                    selected_fingers = None
 
-                if level == 15:
-                    game_state = "WIN"
+                    if level >= len(questions):  # instead of hardcoding 15
+                      game_state = "WIN"
+                      level = len(questions) - 1  # keep last question valid
+                    else:
+                        game_state = "DECISION"
                 else:
-                    game_state = "DECISION"
-            else:
-                game_state = "GAME_OVER"
-                last_gesture_time = current_time
+                  game_state = "GAME_OVER"
 
     # =============================
     # DECISION STATE
@@ -144,48 +190,50 @@ while True:
         cv2.putText(img, f"You won {current_money}", (50, 150),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 3)
 
-        cv2.putText(img, "1 Finger = Continue", (50, 250),
+        cv2.putText(img, "1 = Continue | 2 = Keep", (50, 250),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
 
-        cv2.putText(img, "2 Fingers = Keep Money", (50, 300),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
-
-        if current_time - last_gesture_time > gesture_delay:
-            if fingers == 1:
+        if selected_fingers and hold_start_time and (time.time() - hold_start_time) >= HOLD_TIME:
+            if selected_fingers == 1:
                 game_state = "QUESTION"
-                last_gesture_time = current_time
-            elif fingers == 2:
+                question_start_time = time.time()
+                selected_fingers = None
+            elif selected_fingers == 2:
                 game_state = "WIN"
-                last_gesture_time = current_time
+                selected_fingers = None
+
+            selected_fingers = None
 
     # =============================
     # GAME OVER
     # =============================
     elif game_state == "GAME_OVER":
-        cv2.putText(img, "WRONG ANSWER!", (100, 200),
+        cv2.putText(img, "GAME OVER", (150, 200),
                     cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 0, 255), 4)
 
         cv2.putText(img, "You lost everything!", (100, 260),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
 
-        cv2.putText(img, "Show 1 finger to restart", (100, 320),
+        cv2.putText(img, "1 Finger to Restart", (100, 320),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
 
-        if fingers == 1:
+        if selected_fingers == 1 and hold_start_time and (time.time() - hold_start_time) >= HOLD_TIME:
             game_state = "START"
+            selected_fingers = None
 
     # =============================
-    # WIN STATE
+    # WIN
     # =============================
     elif game_state == "WIN":
-        cv2.putText(img, f"CONGRATS! You won {current_money}", (50, 200),
+        cv2.putText(img, f"CONGRATS! {current_money}", (50, 200),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 3)
 
-        cv2.putText(img, "Show 1 finger to restart", (50, 260),
+        cv2.putText(img, "1 Finger to Restart", (50, 260),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
 
-        if fingers == 1:
+        if selected_fingers == 1 and hold_start_time and (time.time() - hold_start_time) >= HOLD_TIME:
             game_state = "START"
+            selected_fingers = None
 
     cv2.imshow("Millionaire Vision Game", img)
 
