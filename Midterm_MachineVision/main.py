@@ -1,6 +1,7 @@
 import cv2
 import mediapipe as mp
 import time
+import socket
 
 # =============================
 # HAND TRACKING SETUP
@@ -8,6 +9,10 @@ import time
 mp_hands = mp.solutions.hands
 hands = mp_hands.Hands(max_num_hands=1)
 mp_draw = mp.solutions.drawing_utils
+
+UDP_IP = "127.0.0.1"
+UDP_PORT = 4242
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
 # =============================
 # QUESTIONS
@@ -62,6 +67,10 @@ game_state = "START"
 level = 0
 current_money = "$0"
 
+# Animation
+animation_start_time = None
+animation_duration = 1.5
+
 # =============================
 # FINGER COUNT FUNCTION
 # =============================
@@ -83,6 +92,29 @@ def count_fingers(hand_landmarks):
     return sum(fingers)
 
 # =============================
+# DRAW MONEY LADDER
+# =============================
+def draw_money_ladder(img, level, offset=0):
+    h, w, _ = img.shape
+    base_y = h - 50
+
+    for i in range(len(money)):
+        y = base_y - (i * 40) + offset
+
+        color = (0, 140, 255)
+
+        if i == level:
+            cv2.rectangle(img, (200, y-25), (450, y+10), (0, 255, 255), -1)
+            color = (0, 0, 0)
+
+        # ⭐ SAFE LEVEL GLOW HERE
+        if i == 4 or i == 9:  # $1k and $32k
+            cv2.circle(img, (180, y-10), 6, (0, 255, 255), -1)
+
+        cv2.putText(img, f"{i+1} {money[i]}", (220, y),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+
+# =============================
 # MAIN LOOP
 # =============================
 while True:
@@ -95,12 +127,9 @@ while True:
     fingers = 0
     hand_in_box = False
 
-    # Draw ROI box
+    # ROI
     cv2.rectangle(img, roi_top_left, roi_bottom_right, (0, 255, 0), 2)
-    cv2.putText(img, "Place hand here", (400, 90),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
 
-    # Detect hand
     if result.multi_hand_landmarks:
         for handLms in result.multi_hand_landmarks:
             h, w, _ = img.shape
@@ -112,9 +141,7 @@ while True:
                 mp_draw.draw_landmarks(img, handLms, mp_hands.HAND_CONNECTIONS)
                 fingers = count_fingers(handLms)
 
-    # =============================
     # HOLD LOGIC
-    # =============================
     if hand_in_box:
         if selected_fingers is None:
             selected_fingers = fingers
@@ -131,7 +158,7 @@ while True:
         hold_start_time = None
 
     # =============================
-    # START STATE
+    # START
     # =============================
     if game_state == "START":
         cv2.putText(img, "SHOW 1 FINGER TO START", (50, 200),
@@ -145,7 +172,7 @@ while True:
             selected_fingers = None
 
     # =============================
-    # QUESTION STATE
+    # QUESTION
     # =============================
     elif game_state == "QUESTION":
         q, choices, correct = questions[level]
@@ -162,7 +189,7 @@ while True:
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
 
         for i, choice in enumerate(choices):
-            cv2.putText(img, f"{chr(65+i)}: {choice}", (20, 150 + i*40),
+            cv2.putText(img, f"{i+1}: {choice}", (20, 150 + i*40),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, (200, 200, 200), 2)
 
         if remaining_time <= 0:
@@ -173,18 +200,37 @@ while True:
                 if selected_fingers - 1 == correct:
                     current_money = money[level]
                     level += 1
+                    game_state = "ANIMATION"
+                    animation_start_time = time.time()
                     selected_fingers = None
-
-                    if level >= len(questions):  # instead of hardcoding 15
-                      game_state = "WIN"
-                      level = len(questions) - 1  # keep last question valid
-                    else:
-                        game_state = "DECISION"
                 else:
-                  game_state = "GAME_OVER"
+                    game_state = "GAME_OVER"
 
     # =============================
-    # DECISION STATE
+    # ANIMATION
+    # =============================
+    elif game_state == "ANIMATION":
+        elapsed = time.time() - animation_start_time
+        progress = min(elapsed / animation_duration, 1)
+
+        offset = int(progress * 40)
+        draw_money_ladder(img, level-1, offset)
+
+        cv2.putText(img, "Correct!", (200, 80),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 3)
+
+        if progress >= 1:
+            if level >= len(questions):
+                game_state = "WIN"
+                level = len(questions) - 1
+            elif level >= 4:  # index 4 = $1,000
+                game_state = "DECISION"
+            else:
+                game_state = "QUESTION"
+                question_start_time = time.time()
+
+    # =============================
+    # DECISION
     # =============================
     elif game_state == "DECISION":
         cv2.putText(img, f"You won {current_money}", (50, 150),
@@ -197,10 +243,8 @@ while True:
             if selected_fingers == 1:
                 game_state = "QUESTION"
                 question_start_time = time.time()
-                selected_fingers = None
             elif selected_fingers == 2:
                 game_state = "WIN"
-                selected_fingers = None
 
             selected_fingers = None
 
@@ -211,10 +255,7 @@ while True:
         cv2.putText(img, "GAME OVER", (150, 200),
                     cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 0, 255), 4)
 
-        cv2.putText(img, "You lost everything!", (100, 260),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
-
-        cv2.putText(img, "1 Finger to Restart", (100, 320),
+        cv2.putText(img, "1 Finger to Restart", (100, 300),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
 
         if selected_fingers == 1 and hold_start_time and (time.time() - hold_start_time) >= HOLD_TIME:
@@ -239,6 +280,9 @@ while True:
 
     if cv2.waitKey(1) & 0xFF == 27:
         break
+
+    data_packet = f"{game_state},{fingers},{level},{current_money}"
+    sock.sendto(data_packet.encode(), (UDP_IP, UDP_PORT))
 
 cap.release()
 cv2.destroyAllWindows()

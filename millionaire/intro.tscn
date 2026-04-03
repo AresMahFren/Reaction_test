@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3 uid="uid://dbcivlu428p0e"]
+[gd_scene load_steps=21 format=3 uid="uid://dbcivlu428p0e"]
 
 [ext_resource type="Script" uid="uid://dpe41dnxecali" path="res://Introduction.gd" id="1_0a7ni"]
 [ext_resource type="VideoStream" uid="uid://c8l4p47h6rx53" path="res://Who Wants To Be A Millionaire Intro 2011.ogv" id="1_s2ta7"]
@@ -7,6 +7,56 @@
 [ext_resource type="AudioStream" uid="uid://dlc3j5m6uq8mv" path="res://introsound.wav" id="4_y6ycx"]
 [ext_resource type="AudioStream" uid="uid://bo6xgn4q7y14j" path="res://Select.wav" id="5_dpxxx"]
 [ext_resource type="Texture2D" uid="uid://dcwrogogfqomp" path="res://Load.jpg" id="7_dk2oa"]
+[ext_resource type="PackedScene" uid="uid://nm4i1p6tbprc" path="res://solo_explanation.tscn" id="8_d0rr7"]
+[ext_resource type="Texture2D" uid="uid://d2yp8pfio76y" path="res://COKE.png" id="8_dpxxx"]
+[ext_resource type="Script" uid="uid://yeydw2r2gs5k" path="res://solo_explanation.gd" id="9_wby50"]
+[ext_resource type="Texture2D" uid="uid://6tk84hyv8jgq" path="res://explanation.png" id="10_xsd0a"]
+[ext_resource type="AudioStream" uid="uid://bx6yy8ox8u3ch" path="res://just-sans-talking.wav" id="12_smii7"]
+[ext_resource type="Texture2D" uid="uid://2ke0w088xjp5" path="res://Template.jpg" id="13_wby50"]
+[ext_resource type="Script" uid="uid://dwdy8erhham6o" path="res://SingleGame.gd" id="14_xsd0a"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_dk2oa"]
+atlas = ExtResource("8_dpxxx")
+region = Rect2(0, 0, 152, 179)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_7ufi4"]
+atlas = ExtResource("8_dpxxx")
+region = Rect2(152, 0, 152, 179)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_h0kys"]
+atlas = ExtResource("8_dpxxx")
+region = Rect2(304, 0, 152, 179)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_d0rr7"]
+atlas = ExtResource("8_dpxxx")
+region = Rect2(152, 179, 152, 179)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_wby50"]
+atlas = ExtResource("8_dpxxx")
+region = Rect2(304, 179, 152, 179)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_dmx7j"]
+animations = [{
+"frames": [{
+"duration": 2.01,
+"texture": SubResource("AtlasTexture_dk2oa")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_7ufi4")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_h0kys")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_d0rr7")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_wby50")
+}],
+"loop": true,
+"name": &"default",
+"speed": 3.0
+}]
 
 [node name="Intro" type="Control"]
 layout_mode = 3
@@ -53,30 +103,152 @@ grow_horizontal = 2
 grow_vertical = 2
 texture = ExtResource("4_u2rf6")
 
+[node name="SoloButton" type="Button" parent="Choose"]
+modulate = Color(1, 1, 1, 0)
+self_modulate = Color(1, 1, 1, 0)
+layout_mode = 0
+offset_left = 271.0
+offset_top = 343.0
+offset_right = 675.0
+offset_bottom = 749.0
+
+[node name="DuelButton" type="Button" parent="Choose"]
+modulate = Color(1, 1, 1, 0)
+layout_mode = 0
+offset_left = 1244.0
+offset_top = 354.0
+offset_right = 1638.0
+offset_bottom = 743.0
+
 [node name="Loading" type="TextureRect" parent="."]
+visible = false
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_right = 10.0
 grow_horizontal = 2
 grow_vertical = 2
 texture = ExtResource("7_dk2oa")
 
-[node name="Solo" type="Control" parent="."]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-
-[node name="Duel" type="Control" parent="."]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-
 [node name="Timer" type="Timer" parent="."]
 one_shot = true
+
+[node name="SoloExplanation" parent="." instance=ExtResource("8_d0rr7")]
+visible = false
+layout_mode = 1
+script = ExtResource("9_wby50")
+
+[node name="Explain2" type="TextureRect" parent="SoloExplanation"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_right = 10.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("10_xsd0a")
+
+[node name="Label" type="Label" parent="SoloExplanation/Explain2"]
+layout_mode = 0
+offset_left = 313.0
+offset_top = 689.0
+offset_right = 1631.0
+offset_bottom = 788.0
+theme_override_font_sizes/font_size = 50
+
+[node name="MeTalk" type="AnimatedSprite2D" parent="SoloExplanation/Explain2"]
+position = Vector2(1436, 454)
+scale = Vector2(2.1578948, 2.114525)
+sprite_frames = SubResource("SpriteFrames_dmx7j")
+frame_progress = 0.32963946
+
+[node name="Speaking" type="AudioStreamPlayer2D" parent="SoloExplanation/Explain2"]
+stream = ExtResource("12_smii7")
+
+[node name="Timer" type="Timer" parent="SoloExplanation/Explain2"]
+
+[node name="GAME" type="TextureRect" parent="SoloExplanation"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_right = 11.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("13_wby50")
+script = ExtResource("14_xsd0a")
+
+[node name="Value" type="NinePatchRect" parent="SoloExplanation/GAME"]
+layout_mode = 0
+offset_left = 1386.0
+offset_top = 371.0
+offset_right = 1656.0
+offset_bottom = 413.0
+
+[node name="value" type="Label" parent="SoloExplanation/GAME/Value"]
+layout_mode = 0
+offset_right = 267.0
+offset_bottom = 42.0
+
+[node name="Question" type="NinePatchRect" parent="SoloExplanation/GAME"]
+layout_mode = 0
+offset_left = 313.0
+offset_top = 474.0
+offset_right = 1632.0
+offset_bottom = 604.0
+
+[node name="Questions" type="Label" parent="SoloExplanation/GAME/Question"]
+layout_mode = 0
+offset_right = 1318.0
+offset_bottom = 128.0
+
+[node name="A" type="NinePatchRect" parent="SoloExplanation/GAME"]
+layout_mode = 0
+offset_left = 290.0
+offset_top = 677.0
+offset_right = 884.0
+offset_bottom = 783.0
+
+[node name="a" type="Label" parent="SoloExplanation/GAME/A"]
+layout_mode = 0
+offset_right = 591.0
+offset_bottom = 104.0
+
+[node name="B" type="NinePatchRect" parent="SoloExplanation/GAME"]
+layout_mode = 0
+offset_left = 294.0
+offset_top = 855.0
+offset_right = 888.0
+offset_bottom = 961.0
+
+[node name="b" type="Label" parent="SoloExplanation/GAME/B"]
+layout_mode = 0
+offset_right = 586.0
+offset_bottom = 104.0
+
+[node name="C" type="NinePatchRect" parent="SoloExplanation/GAME"]
+layout_mode = 0
+offset_left = 1053.0
+offset_top = 677.0
+offset_right = 1647.0
+offset_bottom = 783.0
+
+[node name="c" type="Label" parent="SoloExplanation/GAME/C"]
+layout_mode = 0
+offset_top = -2.0
+offset_right = 597.0
+offset_bottom = 107.0
+
+[node name="D" type="NinePatchRect" parent="SoloExplanation/GAME"]
+layout_mode = 0
+offset_left = 1055.0
+offset_top = 855.0
+offset_right = 1649.0
+offset_bottom = 961.0
+
+[node name="d" type="Label" parent="SoloExplanation/GAME/D"]
+layout_mode = 0
+offset_right = 595.0
+offset_bottom = 109.0

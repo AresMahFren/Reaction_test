@@ -1,0 +1,90 @@
+[gd_scene load_steps=11 format=3 uid="uid://nm4i1p6tbprc"]
+
+[ext_resource type="Texture2D" uid="uid://6tk84hyv8jgq" path="res://explanation.png" id="1_4t52s"]
+[ext_resource type="Script" uid="uid://dwdy8erhham6o" path="res://SingleGame.gd" id="1_j3nll"]
+[ext_resource type="Texture2D" uid="uid://d2yp8pfio76y" path="res://COKE.png" id="2_j3nll"]
+[ext_resource type="AudioStream" uid="uid://bx6yy8ox8u3ch" path="res://just-sans-talking.wav" id="3_y0auw"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_dk2oa"]
+atlas = ExtResource("2_j3nll")
+region = Rect2(0, 0, 152, 179)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_7ufi4"]
+atlas = ExtResource("2_j3nll")
+region = Rect2(152, 0, 152, 179)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_h0kys"]
+atlas = ExtResource("2_j3nll")
+region = Rect2(304, 0, 152, 179)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_d0rr7"]
+atlas = ExtResource("2_j3nll")
+region = Rect2(152, 179, 152, 179)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_wby50"]
+atlas = ExtResource("2_j3nll")
+region = Rect2(304, 179, 152, 179)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_rhgrm"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_dk2oa")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_7ufi4")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_h0kys")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_d0rr7")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_wby50")
+}],
+"loop": true,
+"name": &"default",
+"speed": 3.0
+}]
+
+[node name="SoloExplanation" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_j3nll")
+
+[node name="Explain" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("1_4t52s")
+
+[node name="Panel" type="Panel" parent="Explain"]
+layout_mode = 0
+offset_left = 318.0
+offset_top = 686.0
+offset_right = 1604.0
+offset_bottom = 786.0
+
+[node name="Label" type="Label" parent="Explain/Panel"]
+layout_mode = 0
+offset_left = 7.0
+offset_right = 1280.0
+offset_bottom = 99.0
+
+[node name="MeTalk" type="AnimatedSprite2D" parent="Explain"]
+position = Vector2(1436, 454)
+scale = Vector2(2.1578948, 2.114525)
+sprite_frames = SubResource("SpriteFrames_rhgrm")
+
+[node name="Speaking" type="AudioStreamPlayer2D" parent="Explain"]
+stream = ExtResource("3_y0auw")
+
+[node name="Timer" type="Timer" parent="Explain"]
